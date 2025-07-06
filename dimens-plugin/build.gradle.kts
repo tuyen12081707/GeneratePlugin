@@ -4,8 +4,8 @@ plugins {
     `maven-publish`
 }
 
-group = "https://github.com/tuyen12081707" // ⚠️ JitPack yêu cầu dạng này
-version = "1.0.0"                          // Tốt nhất nên gắn tag version
+group = "com.panda"
+version = "1.0"                 // Tốt nhất nên gắn tag version
 
 repositories {
     google()
