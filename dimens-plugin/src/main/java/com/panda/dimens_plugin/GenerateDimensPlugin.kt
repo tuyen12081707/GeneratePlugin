@@ -5,18 +5,27 @@ import org.gradle.api.Project
 import java.io.File
 import java.text.DecimalFormat
 
+open class DimensConfig {
+    var designWidthDp: Float = 360f
+}
+
 class GenerateDimensPlugin : Plugin<Project> {
     override fun apply(project: Project) {
+        val config = project.extensions.create("dimensConfig", DimensConfig::class.java)
+
         val generateDimens = project.tasks.register("generateDimens") {
             group = "prebuild"
             description = "Generate dimens.xml based on design width"
 
             doLast {
-                // Your ADB logic here...
-                val designWidthDp = 360f
+                val designWidthDp = config.designWidthDp
+
+                println("🔧 Thiết kế chiều rộng dp: $designWidthDp")
+
                 val adbOutput = "adb shell wm size".runCommand() ?: error("⚠️ Không lấy được kích thước từ adb")
                 val match = Regex("""Physical size: (\d+)x(\d+)""").find(adbOutput)
                     ?: error("⚠️ Không parse được kích thước màn hình")
+
                 val screenWidthPx = match.groupValues[1].toFloat()
                 val density = 3.0f
                 val scaledDensity = 3.0f
@@ -66,4 +75,3 @@ class GenerateDimensPlugin : Plugin<Project> {
         null
     }
 }
-
