@@ -4,13 +4,10 @@ plugins {
     `maven-publish`
 }
 
-group = "com.panda"
+group = "com.github.tuyen12081707"
 version = "1.0"                 // Tốt nhất nên gắn tag version
 
-repositories {
-    google()
-    mavenCentral()
-}
+
 
 gradlePlugin {
     plugins {
