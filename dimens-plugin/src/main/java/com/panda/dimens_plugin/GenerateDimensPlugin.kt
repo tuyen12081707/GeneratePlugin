@@ -4,6 +4,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import java.io.File
 import java.text.DecimalFormat
+import kotlin.math.abs
 
 open class DimensConfig {
     var designWidthDp: Float = 360f
@@ -43,11 +44,19 @@ class GenerateDimensPlugin : Plugin<Project> {
                     appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
                     appendLine("<resources>")
                     sdpValues.forEach { value ->
-                        appendLine("""    <dimen name="_${value}sdp">${df.format(value * scaleFactor * adjustmentFactor)}dp</dimen>""")
+                        if(value<0){
+                            appendLine("""    <dimen name="_m${abs(value)}sdp">${df.format(value * scaleFactor * adjustmentFactor)}dp</dimen>""")
+                        }else{
+                            appendLine("""    <dimen name="_${value}sdp">${df.format(value * scaleFactor * adjustmentFactor)}dp</dimen>""")
+                        }
                     }
                     sspValues.forEach { value ->
                         val formattedValue = df.format((value * scaleFactor * adjustmentFactor) / fontScale)
-                        appendLine("""    <dimen name="_${value}ssp">$formattedValue${if (value > 0) "sp" else "sp"}</dimen>""")
+                        if(value<0){
+                            appendLine("""    <dimen name="_m${abs(value)}ssp">$formattedValue${if (value > 0) "sp" else "sp"}</dimen>""")
+                        }else{
+                            appendLine("""    <dimen name="_${value}ssp">$formattedValue${if (value > 0) "sp" else "sp"}</dimen>""")
+                        }
                     }
                     appendLine("</resources>")
                 }
