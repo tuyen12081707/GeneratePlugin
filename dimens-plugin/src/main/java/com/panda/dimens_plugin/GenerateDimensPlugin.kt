@@ -19,12 +19,13 @@ class GenerateDimensPlugin : Plugin<Project> {
 
             doLast {
                 val designWidthDp = config.designWidthDp
+                println("🔧 Design width in dp: $designWidthDp")
 
-                println("🔧 Thiết kế chiều rộng dp: $designWidthDp")
+                val adbOutput = "adb shell wm size".runCommand()
+                    ?: error("⚠️ Failed to get screen size from adb")
 
-                val adbOutput = "adb shell wm size".runCommand() ?: error("⚠️ Không lấy được kích thước từ adb")
                 val match = Regex("""Physical size: (\d+)x(\d+)""").find(adbOutput)
-                    ?: error("⚠️ Không parse được kích thước màn hình")
+                    ?: error("⚠️ Unable to parse screen size")
 
                 val screenWidthPx = match.groupValues[1].toFloat()
                 val density = 3.0f
@@ -33,8 +34,9 @@ class GenerateDimensPlugin : Plugin<Project> {
                 val adjustmentFactor = if (designWidthDp > 360f) 800f / 360f else 1f
                 val fontScale = scaledDensity / density
 
-                val sdpValues = listOf(1, 2, 4, 8, 10, 12, 14, 16, 20, 24, 32, 40, 48, 56, 64)
-                val sspValues = listOf(10, 12, 14, 16, 18, 20, 24, 40)
+                val sdpValues = (-500..500).filter { it != 0 }
+                val sspValues = (-500..500).filter { it != 0 }
+
                 val df = DecimalFormat("#.####")
 
                 val xmlContent = buildString {
@@ -44,7 +46,8 @@ class GenerateDimensPlugin : Plugin<Project> {
                         appendLine("""    <dimen name="_${value}sdp">${df.format(value * scaleFactor * adjustmentFactor)}dp</dimen>""")
                     }
                     sspValues.forEach { value ->
-                        appendLine("""    <dimen name="_${value}ssp">${df.format((value * scaleFactor * adjustmentFactor) / fontScale)}dp</dimen>""")
+                        val formattedValue = df.format((value * scaleFactor * adjustmentFactor) / fontScale)
+                        appendLine("""    <dimen name="_${value}ssp">$formattedValue${if (value > 0) "sp" else "sp"}</dimen>""")
                     }
                     appendLine("</resources>")
                 }
@@ -53,7 +56,7 @@ class GenerateDimensPlugin : Plugin<Project> {
                 outputFile.parentFile.mkdirs()
                 outputFile.writeText(xmlContent)
 
-                println("✅ dimens.xml đã được sinh tại: ${outputFile.absolutePath}")
+                println("✅ dimens.xml has been generated at: ${outputFile.absolutePath}")
             }
         }
 
@@ -71,7 +74,7 @@ class GenerateDimensPlugin : Plugin<Project> {
             .readText()
             .trim()
     } catch (e: Exception) {
-        println("❌ Lỗi khi chạy lệnh: $this")
+        println("❌ Error running command: $this")
         null
     }
 }
