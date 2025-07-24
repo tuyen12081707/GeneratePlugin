@@ -8,6 +8,7 @@ import kotlin.math.abs
 
 open class DimensConfig {
     var designWidthDp: Float = 360f
+    var fallbackScreenWidthPx: Float? = 1080f
 }
 
 class GenerateDimensPlugin : Plugin<Project> {
@@ -25,10 +26,22 @@ class GenerateDimensPlugin : Plugin<Project> {
                 val adbOutput = "adb shell wm size".runCommand()
                     ?: error("⚠️ Failed to get screen size from adb")
 
-                val match = Regex("""Physical size: (\d+)x(\d+)""").find(adbOutput)
-                    ?: error("⚠️ Unable to parse screen size")
 
-                val screenWidthPx = match.groupValues[1].toFloat()
+                val match = Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""").find(adbOutput)
+                    ?: error("⚠️ Unable to parse screen size from adb output:\n$adbOutput")
+
+                val screenWidthPx = try {
+                    val adbOutput = "adb shell wm size".runCommand()
+                        ?: throw Exception("ADB failed")
+                    val match = Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""")
+                        .find(adbOutput)
+                        ?: throw Exception("Regex failed")
+                    match.groupValues[1].toFloat()
+                } catch (e: Exception) {
+                    config.fallbackScreenWidthPx
+                        ?: error("⚠️ Cannot detect screen width via ADB and no fallback provided. Error: ${e.message}")
+                }
+
                 val density = 3.0f
                 val scaledDensity = 3.0f
                 val scaleFactor = (screenWidthPx / density) / designWidthDp
