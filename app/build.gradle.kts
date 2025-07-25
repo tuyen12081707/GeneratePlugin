@@ -1,4 +1,3 @@
-import com.panda.dimens_plugin.DimensConfig
 
 plugins {
     alias(libs.plugins.android.application)
