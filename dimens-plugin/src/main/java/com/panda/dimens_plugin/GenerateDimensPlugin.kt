@@ -15,7 +15,7 @@ open class DimensConfig {
     /**
      * Tùy chỉnh scale theo phần trăm so với thực tế. Ví dụ: 80f = 80% = scale nhỏ hơn 20%
      */
-    var manualScalePercent: Float=1.0f
+    var manualScalePercent: Float=100f
 }
 
 class GenerateDimensPlugin : Plugin<Project> {
