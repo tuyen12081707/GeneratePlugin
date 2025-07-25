@@ -3,12 +3,8 @@ import com.panda.dimens_plugin.DimensConfig
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    id("com.panda.generatedimens") version "1.0.0"
 }
-dimensConfig  {
-    designWidthDp = 360f
-    fallbackScreenWidthPx = 1080f
-}
+
 android {
     namespace = "com.panda.generateplugin"
     compileSdk = 35
