@@ -9,6 +9,8 @@ import kotlin.math.abs
 open class DimensConfig {
     var designWidthDp: Float = 360f
     var fallbackScreenWidthPx: Float? = 1080f
+    var fallbackDensity: Float = 3.0f
+    var fallbackScaledDensity: Float = 3.0f
 }
 
 class GenerateDimensPlugin : Plugin<Project> {
@@ -23,31 +25,47 @@ class GenerateDimensPlugin : Plugin<Project> {
                 val designWidthDp = config.designWidthDp
                 println("🔧 Design width in dp: $designWidthDp")
 
-                val adbOutput = "adb shell wm size".runCommand()
+                // 1. Lấy kích thước màn hình thật qua ADB
+                val adbSizeOutput = "adb shell wm size".runCommand()
                     ?: error("⚠️ Failed to get screen size from adb")
 
+                println("📱 adb wm size: $adbSizeOutput")
 
-                val match = Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""").find(adbOutput)
-                    ?: error("⚠️ Unable to parse screen size from adb output:\n$adbOutput")
+                val sizeMatch =
+                    Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""").find(adbSizeOutput)
+                        ?: error("⚠️ Unable to parse screen size from adb output:\n$adbSizeOutput")
 
-                val screenWidthPx = try {
-                    val adbOutput = "adb shell wm size".runCommand()
-                        ?: throw Exception("ADB failed")
-                    val match = Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""")
-                        .find(adbOutput)
-                        ?: throw Exception("Regex failed")
-                    match.groupValues[1].toFloat()
-                } catch (e: Exception) {
-                    config.fallbackScreenWidthPx
-                        ?: error("⚠️ Cannot detect screen width via ADB and no fallback provided. Error: ${e.message}")
-                }
+                val screenWidthPx = sizeMatch.groupValues[1].toFloat()
+                println("📏 Screen width (px): $screenWidthPx")
 
-                val density = 3.0f
-                val scaledDensity = 3.0f
-                val scaleFactor = (screenWidthPx / density) / designWidthDp
-                val adjustmentFactor = if (designWidthDp > 360f) 800f / 360f else 1f
+                // 2. Lấy mật độ thực tế qua adb shell wm density
+                val adbDensityOutput = "adb shell wm density".runCommand()
+                println("🔍 adb density: $adbDensityOutput")
+
+                val densityDpi = Regex("""Physical density:\s*(\d+)""")
+                    .find(adbDensityOutput ?: "")
+                    ?.groupValues?.get(1)
+                    ?.toFloatOrNull()
+
+                val density = densityDpi?.div(160f)
+                    ?: config.fallbackDensity
+                    ?: error("⚠️ Cannot detect screen density and no fallbackDensity provided.")
+
+                val scaledDensity = config.fallbackScaledDensity ?: density
+
+                println("🧪 density: $density")
+                println("🧪 scaledDensity: $scaledDensity")
+
+                // 3. Tính scale
+                val actualWidthDp = screenWidthPx / density
+                val scaleFactor = actualWidthDp / designWidthDp
                 val fontScale = scaledDensity / density
 
+                println("🔬 actualWidthDp: $actualWidthDp")
+                println("🔬 scaleFactor: $scaleFactor")
+                println("🔬 fontScale: $fontScale")
+
+                // 4. Sinh file dimens.xml
                 val sdpValues = (-500..500).filter { it != 0 }
                 val sspValues = (-500..500).filter { it != 0 }
 
@@ -56,21 +74,19 @@ class GenerateDimensPlugin : Plugin<Project> {
                 val xmlContent = buildString {
                     appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
                     appendLine("<resources>")
+
                     sdpValues.forEach { value ->
-                        if(value<0){
-                            appendLine("""    <dimen name="_m${abs(value)}sdp">${df.format(value * scaleFactor * adjustmentFactor)}dp</dimen>""")
-                        }else{
-                            appendLine("""    <dimen name="_${value}sdp">${df.format(value * scaleFactor * adjustmentFactor)}dp</dimen>""")
-                        }
+                        val scaledDp = value * scaleFactor
+                        val name = if (value < 0) "_m${abs(value)}sdp" else "_${value}sdp"
+                        appendLine("""    <dimen name="$name">${df.format(scaledDp)}dp</dimen>""")
                     }
+
                     sspValues.forEach { value ->
-                        val formattedValue = df.format((value * scaleFactor * adjustmentFactor) / fontScale)
-                        if(value<0){
-                            appendLine("""    <dimen name="_m${abs(value)}ssp">$formattedValue${if (value > 0) "sp" else "sp"}</dimen>""")
-                        }else{
-                            appendLine("""    <dimen name="_${value}ssp">$formattedValue${if (value > 0) "sp" else "sp"}</dimen>""")
-                        }
+                        val scaledSp = (value * scaleFactor) / fontScale
+                        val name = if (value < 0) "_m${abs(value)}ssp" else "_${value}ssp"
+                        appendLine("""    <dimen name="$name">${df.format(scaledSp)}sp</dimen>""")
                     }
+
                     appendLine("</resources>")
                 }
 
@@ -96,7 +112,7 @@ class GenerateDimensPlugin : Plugin<Project> {
             .readText()
             .trim()
     } catch (e: Exception) {
-        println("❌ Error running command: $this")
+        println("❌ Error running command: $this\n${e.message}")
         null
     }
 }
