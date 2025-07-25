@@ -11,6 +11,11 @@ open class DimensConfig {
     var fallbackScreenWidthPx: Float? = 1080f
     var fallbackDensity: Float = 3.0f
     var fallbackScaledDensity: Float = 3.0f
+
+    /**
+     * Tùy chỉnh scale theo phần trăm so với thực tế. Ví dụ: 80f = 80% = scale nhỏ hơn 20%
+     */
+    var manualScalePercent: Float=1.0f
 }
 
 class GenerateDimensPlugin : Plugin<Project> {
@@ -27,18 +32,18 @@ class GenerateDimensPlugin : Plugin<Project> {
 
                 // 1. Lấy kích thước màn hình thật qua ADB
                 val adbSizeOutput = "adb shell wm size".runCommand()
-                    ?: error("⚠️ Failed to get screen size from adb")
-
                 println("📱 adb wm size: $adbSizeOutput")
 
-                val sizeMatch =
-                    Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""").find(adbSizeOutput)
-                        ?: error("⚠️ Unable to parse screen size from adb output:\n$adbSizeOutput")
+                val screenWidthPx = Regex("""(?:Override|Physical) size:\s*(\d+)x(\d+)""")
+                    .find(adbSizeOutput ?: "")
+                    ?.groupValues?.get(1)
+                    ?.toFloatOrNull()
+                    ?: config.fallbackScreenWidthPx
+                    ?: error("⚠️ Cannot detect screen width and no fallbackScreenWidthPx provided.")
 
-                val screenWidthPx = sizeMatch.groupValues[1].toFloat()
                 println("📏 Screen width (px): $screenWidthPx")
 
-                // 2. Lấy mật độ thực tế qua adb shell wm density
+                // 2. Lấy mật độ thực tế qua adb
                 val adbDensityOutput = "adb shell wm density".runCommand()
                 println("🔍 adb density: $adbDensityOutput")
 
@@ -47,18 +52,21 @@ class GenerateDimensPlugin : Plugin<Project> {
                     ?.groupValues?.get(1)
                     ?.toFloatOrNull()
 
-                val density = densityDpi?.div(160f)
-                    ?: config.fallbackDensity
-                    ?: error("⚠️ Cannot detect screen density and no fallbackDensity provided.")
-
-                val scaledDensity = config.fallbackScaledDensity ?: density
+                val density = densityDpi?.div(160f) ?: config.fallbackDensity
+                val scaledDensity = config.fallbackScaledDensity
 
                 println("🧪 density: $density")
                 println("🧪 scaledDensity: $scaledDensity")
 
-                // 3. Tính scale
                 val actualWidthDp = screenWidthPx / density
-                val scaleFactor = actualWidthDp / designWidthDp
+                val actualScaleFactor = actualWidthDp / designWidthDp
+
+                val scaleFactor = config.manualScalePercent.let {
+                    val percentScale = it / 100f
+                    println("📐 Adjusting actual scale $actualScaleFactor by ${it}% → final: ${actualScaleFactor * percentScale}")
+                    actualScaleFactor * percentScale
+                } ?: actualScaleFactor
+
                 val fontScale = scaledDensity / density
 
                 println("🔬 actualWidthDp: $actualWidthDp")
